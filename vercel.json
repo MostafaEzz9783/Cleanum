@@ -1,5 +1,5 @@
 {
   "framework": "other",
-  "buildCommand": "cp preview.html public/index.html",
+  "buildCommand": "echo Static dashboard ready",
   "outputDirectory": "public"
 }
