@@ -1,5 +1,5 @@
 {
-  "framework": "vite",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist/client"
+  "framework": "other",
+  "buildCommand": "cp preview.html public/index.html",
+  "outputDirectory": "public"
 }
