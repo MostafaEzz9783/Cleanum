@@ -110,6 +110,35 @@
     }));
   };
 
+  const renderScenarios = () => {
+    const section = $("#scenarios");
+    if (!section) return;
+    const v = calc();
+    const capacityVisits = state.visitsPerWorkerPerDay * state.workdaysPerMonth;
+    const scenarioPrice = Math.max(
+      (((v.salary + state.transport + v.averageMaterial * capacityVisits) / (state.dailyHours * state.workdaysPerMonth)) / (1 - state.margin)) * v.averageBillable,
+      state.minVisit.regular,
+    );
+    const breakEvenVisits = Math.ceil((v.salary + state.transport) / Math.max(scenarioPrice - v.averageMaterial, 1));
+    const profiles = [
+      { name: "بداية هادئة", note: "بناء ثقة وقاعدة عملاء تدريجياً؛ لا يصل للتعادل خلال السنة الأولى.", tone: "#7892aa", visits: [8, 10, 12, 15, 18, 21, 24, 27, 30, 34, 38, 42] },
+      { name: "نمو متوازن — الموصى به", note: "يصل إلى التعادل التشغيلي في الشهر الخامس؛ أفضل توازن بين الواقعية والسيولة.", tone: "#1e9d85", visits: [20, 28, 38, 48, 56, 62, 66, 70, 72, 74, 76, 78] },
+      { name: "بداية قوية", note: "يصل للتعادل في الشهر الثالث ثم يتحول إلى ربح؛ يحتاج تسويقاً ومبيعات قوية منذ اليوم الأول.", tone: "#d8842c", visits: [40, 50, 58, 64, 68, 72, 74, 76, 78, 78, 78, 78] },
+    ];
+    const rows = (profile) => profile.visits.map((visits, index) => {
+      const materials = visits * v.averageMaterial;
+      const expense = v.salary + state.transport + materials;
+      const revenue = visits * scenarioPrice;
+      const profit = revenue - expense;
+      return { month: index + 1, visits, revenue, expense, profit };
+    });
+    section.innerHTML = `<article class="panel engine-panel"><h2>سيناريوهات السنة الأولى — عاملة واحدة</h2><p class="sub">السقف التشغيلي: ${capacityVisits} زيارة شهرياً. سعر السيناريو المتوسط ${money(scenarioPrice)} قبل الضريبة، والمواد تحسب فعلياً حسب عدد الزيارات.</p><div class="engine-good">نقطة التعادل الشهرية: ${breakEvenVisits} زيارة. تم اختيار سيناريو النمو المتوازن للوصول إليها في الشهر الخامس.</div></article>${profiles.map(profile => {
+      const data = rows(profile); const totals = data.reduce((sum, row) => ({ visits: sum.visits + row.visits, revenue: sum.revenue + row.revenue, expense: sum.expense + row.expense, profit: sum.profit + row.profit }), { visits: 0, revenue: 0, expense: 0, profit: 0 });
+      const achieved = data.find(row => row.profit >= 0)?.month;
+      return `<article class="panel engine-panel"><h3 style="border-right:4px solid ${profile.tone};padding-right:10px">${profile.name}</h3><p class="sub">${profile.note}</p><div class="engine-grid"><div class="engine-stat"><small>التعادل الشهري</small><strong>${achieved ? `شهر ${achieved}` : "بعد السنة الأولى"}</strong></div><div class="engine-stat"><small>زيارات السنة</small><strong>${totals.visits}</strong></div><div class="engine-stat"><small>إيرادات السنة قبل الضريبة</small><strong>${money(totals.revenue)}</strong></div><div class="engine-stat"><small>صافي السنة التشغيلي</small><strong>${money(totals.profit)}</strong></div></div><table class="engine-table"><thead><tr><th>الشهر</th><th>الزيارات</th><th>الإيرادات قبل الضريبة</th><th>المصاريف</th><th>الربح / الخسارة</th></tr></thead><tbody>${data.map(row => `<tr><td>${row.month}</td><td>${row.visits}</td><td>${money(row.revenue)}</td><td>${money(row.expense)}</td><td style="color:${row.profit >= 0 ? "#147558" : "#b45309"}">${money(row.profit)}</td></tr>`).join("")}</tbody></table></article>`;
+    }).join("")}`;
+  };
+
   let render = () => {
     const v = calc();
     setText("costHour", money(v.costPerHour)); setText("costHour2", money(v.costPerHour));
@@ -154,7 +183,7 @@
     state.salary = number(salaryInput?.value); state.team = number(teamInput?.value); state.hours = number(hoursInput?.value);
     const selectedService = serviceKey();
     state.minVisit[selectedService] = number(minVisitInput?.value);
-    persist(); render();
+    persist(); render(); renderScenarios();
   };
 
   const settings = $("#settings");
@@ -166,13 +195,13 @@
       state.margin = number($("#engine-margin").value) / 100; state.taxRate = number($("#engine-tax").value) / 100;
       state.taxEnabled = $("#engine-tax-enabled").checked; state.marketPrice = number($("#engine-market").value);
       state.marketIncludesTax = $("#engine-market-basis").value === "including";
-      state.role = $("#engine-role").value; persist(); render();
+      state.role = $("#engine-role").value; persist(); render(); renderScenarios();
     }));
   }
 
   const costs = $("#costs");
   if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>التكاليف الثابتة والمواد</h3><p class="sub">النقل والوقود ثابتان عند 2,000 SAR شهرياً للشركة كلها، وليسا تكلفة لكل عاملة. الإدارة والتشغيل خارج النموذج الحالي.</p><div class="engine-fields"><label>النقل والوقود الشهري<input value="2,000 SAR — ثابت للشركة" readonly></label><label>هدف الزيارات اليومي للمواد<input id="engine-material-target" type="number" min="0" step="1" value="${state.dailyMaterialTarget}"></label><div class="engine-stat"><small>معادلة تكلفة المواد</small><strong id="engine-material-formula">—</strong><p class="sub">متوسط تكلفة الزيارة × الهدف اليومي × 26 يوم.</p></div></div></article>`);
-  $("#engine-material-target")?.addEventListener("input", () => { state.dailyMaterialTarget = number($("#engine-material-target").value); persist(); render(); });
+  $("#engine-material-target")?.addEventListener("input", () => { state.dailyMaterialTarget = number($("#engine-material-target").value); persist(); render(); renderScenarios(); });
 
   const dashboard = $("#dash");
   if (dashboard) dashboard.insertAdjacentHTML("beforeend", '<article id="financial-health" class="panel engine-panel"></article><section id="engine-warnings"></section>');
@@ -200,5 +229,5 @@
     const titles = { dash: "لوحة التحكم", calc: "حاسبة الأسعار", costs: "هيكل التكاليف", scenarios: "السيناريوهات", library: "مكتبة الأسعار", settings: "الإعدادات" };
     const title = $("#title"); if (title) title.textContent = titles[button.dataset.page] || "Cleanum";
   }));
-  renderLibrary(); loadUnitServiceDefaults(); syncState();
+  renderLibrary(); renderScenarios(); loadUnitServiceDefaults(); syncState();
 })();
