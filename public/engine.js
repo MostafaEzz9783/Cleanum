@@ -58,7 +58,7 @@
     const salary = number(salaryInput?.value || state.salary);
     const team = number(teamInput?.value || state.team);
     const hours = state.dailyHours * state.workdaysPerMonth;
-    const billable = number(billableInput.value);
+    const billable = Math.max(1, Math.round(actualMinutes[unit] / 60));
     const minimum = number(minVisitInput?.value);
     const adjustment = number(adjustInput?.value);
     const monthlyCost = salary * team + state.transport + state.supplies + state.admin;
@@ -72,7 +72,7 @@
     const total = beforeTax + vat;
     const targetMargin = state.margin * 100;
     const actualMargin = beforeTax > 0 ? ((beforeTax - directCost) / beforeTax) * 100 : 0;
-    const averageBillable = Object.values(state.billable.regular).reduce((sum, value) => sum + number(value), 0) / 4;
+    const averageBillable = Object.values(actualMinutes).reduce((sum, minutes) => sum + Math.max(1, Math.round(minutes / 60)), 0) / 4;
     const averageActualMinutes = Object.values(actualMinutes).reduce((sum, value) => sum + value, 0) / 4;
     const averageBeforeTax = Math.max(hourlyRate * averageBillable, state.minVisit.regular);
     const averageVat = state.taxEnabled ? averageBeforeTax * state.taxRate : 0;
@@ -137,13 +137,14 @@
   const loadUnitServiceDefaults = () => {
     const unit = home.value;
     const selectedService = serviceKey();
-    billableInput.value = state.billable[selectedService][unit] ?? 1;
+    billableInput.value = Math.max(1, Math.round(actualMinutes[unit] / 60));
+    billableInput.readOnly = true;
+    if (billableInput.parentElement?.firstChild) billableInput.parentElement.firstChild.nodeValue = "الوقت القابل للفوترة (وقت التنظيف مقرب لأقرب ساعة)";
     if (minVisitInput) minVisitInput.value = state.minVisit[selectedService];
   };
   const syncState = () => {
     state.salary = number(salaryInput?.value); state.team = number(teamInput?.value); state.hours = number(hoursInput?.value);
     const selectedService = serviceKey();
-    state.billable[selectedService][home.value] = number(billableInput.value);
     state.minVisit[selectedService] = number(minVisitInput?.value);
     persist(); render();
   };
@@ -170,7 +171,7 @@
   const dashboard = $("#dash");
   if (dashboard) dashboard.insertAdjacentHTML("beforeend", '<article id="financial-health" class="panel engine-panel"></article><section id="engine-warnings"></section>');
   const calculator = $("#calc");
-  if (calculator) calculator.querySelector(".panel")?.insertAdjacentHTML("beforeend", '<article class="panel engine-panel"><h3>كيف يُحسب السعر؟</h3><div class="engine-grid"><div class="engine-stat"><small>بالساعة</small><strong id="engine-hourly-explainer">—</strong><p class="sub">سعر الساعة × وقت الفوترة المستقل.</p></div><div class="engine-stat"><small>بالزيارة</small><strong id="engine-visit-explainer">—</strong><p class="sub">إجمالي الساعات بعد التعديل، ولا يقل عن الحد الأدنى للزيارة.</p></div></div></article>');
+  if (calculator) calculator.querySelector(".panel")?.insertAdjacentHTML("beforeend", '<article class="panel engine-panel"><h3>كيف يُحسب السعر؟</h3><div class="engine-grid"><div class="engine-stat"><small>بالساعة</small><strong id="engine-hourly-explainer">—</strong><p class="sub">سعر الساعة × وقت التنظيف بعد التقريب لأقرب ساعة كاملة.</p></div><div class="engine-stat"><small>بالزيارة</small><strong id="engine-visit-explainer">—</strong><p class="sub">إجمالي الساعات بعد التعديل، ولا يقل عن الحد الأدنى للزيارة.</p></div></div></article>');
 
   const originalRender = render;
   const renderWithExplain = () => { originalRender(); const v = calc(); setText("engine-hourly-explainer", money(v.hourlyTotal)); setText("engine-visit-explainer", money(v.beforeTax)); };
@@ -178,7 +179,7 @@
 
   home.addEventListener("change", () => { loadUnitServiceDefaults(); syncState(); });
   service.addEventListener("change", () => { loadUnitServiceDefaults(); syncState(); });
-  [billableInput, minVisitInput, adjustInput, salaryInput, teamInput, hoursInput].filter(Boolean).forEach(input => input.addEventListener("input", syncState));
+  [minVisitInput, adjustInput, salaryInput, teamInput, hoursInput].filter(Boolean).forEach(input => input.addEventListener("input", syncState));
   $("#quick-team")?.addEventListener("input", event => { if (teamInput) { teamInput.value = event.target.value; } syncState(); });
 
   $(".save")?.addEventListener("click", () => {
