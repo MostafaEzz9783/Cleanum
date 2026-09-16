@@ -1,5 +1,5 @@
 {
-  "framework": "other",
+  "framework": "vite",
   "buildCommand": "echo Static dashboard ready",
   "outputDirectory": "public"
 }
