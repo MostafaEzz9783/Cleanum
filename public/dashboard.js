@@ -10,8 +10,22 @@
 
   calculator.querySelector(".panel").insertAdjacentHTML(
     "afterbegin",
-    '<div id="staffing-note" style="margin:0 0 16px;padding:11px 13px;border-radius:9px;background:#e8faf4;color:#176e62;font-size:13px"><strong>✓ عاملة واحدة لكل زيارة</strong><br><span style="font-size:11px">عدد العاملات في الشركة يوزّع التكلفة الشهرية فقط، ولا يُضرب في تكلفة الشقة.</span></div>',
+    '<div id="staffing-note" style="margin:0 0 16px;padding:11px 13px;border-radius:9px;background:#e8faf4;color:#176e62;font-size:13px"><strong>✓ عاملة واحدة لكل زيارة</strong><br><span style="font-size:11px">عدد العاملات في الشركة يوزّع التكلفة الشهرية فقط، ولا يُضرب في تكلفة الشقة.</span></div><div id="material-note" style="margin:0 0 16px;padding:11px 13px;border-radius:9px;background:#f5f8fb;color:#46627a;font-size:13px"><strong>تكلفة المستلزمات المرجعية: <span id="material-cost">2.9 SAR</span></strong><br><span style="font-size:11px">للتشغيل والربحية فقط — مدرجة حاليًا في مجمع التكاليف الشهري ولا تُضاف مرة ثانية للسعر.</span></div>',
   );
+
+  costs.insertAdjacentHTML(
+    "beforeend",
+    '<article class="panel" style="margin-top:17px"><h2>تكلفة المستلزمات المرجعية لكل زيارة</h2><p style="font-size:12px;color:#71869a">تشمل المنظفات، القفازات، كيس النفايات، واستهلاك المايكروفايبر. لا تدخل مباشرة في سعر الزيارة طالما بند المستلزمات الشهري موجود.</p><div class="rows"><p>Studio — تنظيف دوري<strong>2.2 SAR</strong></p><p>1BR — تنظيف دوري<strong>2.9 SAR</strong></p><p>2BR — تنظيف دوري<strong>4.2 SAR</strong></p><p>3BR — تنظيف دوري<strong>5.3 SAR</strong></p><p>4BR — تنظيف دوري<strong>6.5 SAR</strong></p></div><p style="margin:13px 0 0;color:#147d6e;font-size:12px">Turnover Cleaning = تكلفة المواد × 1.4</p></article>',
+  );
+
+  const serviceSelect = calculator.querySelectorAll("select")[1];
+  serviceSelect.id = "serviceType";
+  const materialByUnit = { 1: 2.9, 1.5: 4.2, 2: 5.3, 2.5: 6.5 };
+  function updateMaterialCost() {
+    const base = materialByUnit[Number($("#home").value)] || 0;
+    const turnover = serviceSelect.selectedIndex === 1;
+    $("#material-cost").textContent = fmt(base * (turnover ? 1.4 : 1));
+  }
 
   dashboard.insertAdjacentHTML(
     "beforeend",
@@ -44,6 +58,9 @@
   ["#salary", "#hours", "#billableInput", "#minVisit", "#adjust"].forEach((selector) =>
     $(selector).addEventListener("input", updateDashboard),
   );
+  ["#home", "#serviceType"].forEach((selector) =>
+    $(selector).addEventListener("input", updateMaterialCost),
+  );
 
   document.querySelectorAll(".card").forEach((card, index) => {
     card.style.cursor = "pointer";
@@ -53,4 +70,5 @@
     });
   });
   updateDashboard();
+  updateMaterialCost();
 })();
