@@ -9,7 +9,7 @@
   const materialCost = { 1: 2.9, 1.5: 4.2, 2: 5.3, 2.5: 6.5 };
 
   const defaults = {
-    salary: 3000, team: 8, hours: 156, transport: 12400, supplies: 5700, admin: 6800,
+    salary: 3000, team: 8, hours: 208, dailyHours: 8, workdaysPerWeek: 6, workdaysPerMonth: 26, visitsPerWorkerPerDay: 3, transport: 12400, supplies: 5700, admin: 6800,
     margin: 0.4, taxRate: 0.15, taxEnabled: true, marketPrice: 128, marketIncludesTax: true,
     monthlyVisits: 310, role: "admin", drafts: [],
     billable: {
@@ -44,6 +44,7 @@
   const hoursInput = $("#hours");
   if (!home || !service || !billableInput) return;
   const serviceKey = () => service.selectedIndex === 1 ? "turnover" : "regular";
+  if (hoursInput) { hoursInput.value = state.dailyHours * state.workdaysPerMonth; hoursInput.readOnly = true; }
 
   const style = document.createElement("style");
   style.textContent = `
@@ -56,7 +57,7 @@
     const selectedService = serviceKey();
     const salary = number(salaryInput?.value || state.salary);
     const team = number(teamInput?.value || state.team);
-    const hours = number(hoursInput?.value || state.hours);
+    const hours = state.dailyHours * state.workdaysPerMonth;
     const billable = number(billableInput.value);
     const minimum = number(minVisitInput?.value);
     const adjustment = number(adjustInput?.value);
@@ -71,14 +72,20 @@
     const total = beforeTax + vat;
     const targetMargin = state.margin * 100;
     const actualMargin = beforeTax > 0 ? ((beforeTax - directCost) / beforeTax) * 100 : 0;
-    const visits = state.monthlyVisits;
-    const revenue = beforeTax * visits;
-    const vatCollected = vat * visits;
+    const averageBillable = Object.values(state.billable.regular).reduce((sum, value) => sum + number(value), 0) / 4;
+    const averageActualMinutes = Object.values(actualMinutes).reduce((sum, value) => sum + value, 0) / 4;
+    const averageBeforeTax = Math.max(hourlyRate * averageBillable, state.minVisit.regular);
+    const averageVat = state.taxEnabled ? averageBeforeTax * state.taxRate : 0;
+    const averageTotal = averageBeforeTax + averageVat;
+    const shiftRevenue = averageBeforeTax * state.visitsPerWorkerPerDay;
+    const visits = team * state.visitsPerWorkerPerDay * state.workdaysPerMonth;
+    const revenue = averageBeforeTax * visits;
+    const vatCollected = averageVat * visits;
     const profit = revenue - monthlyCost;
-    const requiredHours = visits * billable;
+    const requiredHours = visits * averageBillable;
     const utilization = capacity ? requiredHours / capacity : 0;
     const marketComparable = state.marketIncludesTax ? total : beforeTax;
-    return { unit, serviceKey: selectedService, salary, team, hours, billable, minimum, adjustment, monthlyCost, capacity, costPerHour, directCost, hourlyRate, hourlyTotal, beforeTax, vat, total, actualMargin, targetMargin, visits, revenue, vatCollected, profit, requiredHours, utilization, marketComparable, marketDifference: marketComparable - state.marketPrice, material: materialCost[unit] * (selectedService === "turnover" ? 1.4 : 1) };
+    return { unit, serviceKey: selectedService, salary, team, hours, billable, minimum, adjustment, monthlyCost, capacity, costPerHour, directCost, hourlyRate, hourlyTotal, beforeTax, vat, total, actualMargin, targetMargin, visits, revenue, vatCollected, profit, requiredHours, utilization, marketComparable, marketDifference: marketComparable - state.marketPrice, material: materialCost[unit] * (selectedService === "turnover" ? 1.4 : 1), averageBillable, averageActualMinutes, averageBeforeTax, averageTotal, shiftRevenue };
   };
 
   const renderLibrary = () => {
@@ -113,15 +120,16 @@
     const target = $("#marginTarget"); if (target) target.textContent = `هامش الربح الفعلي ${v.actualMargin.toFixed(1)}% — المستهدف ${v.targetMargin.toFixed(0)}%`;
     const quick = { "quick-revenue": money(v.revenue), "quick-cost": money(v.monthlyCost), "quick-profit": money(v.profit) };
     Object.entries(quick).forEach(([id, value]) => setText(id, value));
-    setText("quick-price", money(v.total));
+    setText("quick-price", money(v.averageTotal)); setText("quick-shift", money(v.shiftRevenue));
+    const quickVisits = $("#quick-visits"); if (quickVisits) { quickVisits.value = v.visits; quickVisits.readOnly = true; }
 
     const health = $("#financial-health");
-    if (health) health.innerHTML = `<h3>صحة التسعير والتشغيل</h3><div class="engine-grid"><div class="engine-stat"><small>الإيراد الشهري قبل الضريبة</small><strong>${money(v.revenue)}</strong></div><div class="engine-stat"><small>ربح تشغيلي قبل الضريبة</small><strong>${money(v.profit)}</strong></div><div class="engine-stat"><small>ضريبة محصلة وليست ربحاً</small><strong>${money(v.vatCollected)}</strong></div><div class="engine-stat"><small>نقطة التعادل</small><strong>${Math.ceil(v.monthlyCost / Math.max(v.beforeTax, 1))} زيارة</strong></div><div class="engine-stat"><small>استغلال سعة العاملات</small><strong>${(v.utilization * 100).toFixed(0)}%</strong></div><div class="engine-stat"><small>الساعات المتاحة / المطلوبة</small><strong>${v.capacity.toFixed(0)} / ${v.requiredHours.toFixed(0)}</strong></div></div>`;
+    if (health) health.innerHTML = `<h3>صحة التسعير والتشغيل</h3><div class="engine-grid"><div class="engine-stat"><small>متوسط سعر الزيارة (شامل الضريبة)</small><strong>${money(v.averageTotal)}</strong></div><div class="engine-stat"><small>متوسط إيراد الشفت قبل الضريبة</small><strong>${money(v.shiftRevenue)}</strong></div><div class="engine-stat"><small>الإيراد الشهري قبل الضريبة</small><strong>${money(v.revenue)}</strong></div><div class="engine-stat"><small>ربح تشغيلي قبل الضريبة</small><strong>${money(v.profit)}</strong></div><div class="engine-stat"><small>نقطة التعادل</small><strong>${Math.ceil(v.monthlyCost / Math.max(v.averageBeforeTax, 1))} زيارة</strong></div><div class="engine-stat"><small>زمن 3 زيارات / الشفت</small><strong>${(v.averageActualMinutes * 3).toFixed(0)} / 480 دقيقة</strong></div></div>`;
     const warnings = [];
     if (!v.team || !v.hours || !v.billable) warnings.push("أدخل عدد العاملات وساعات السعة ووقت الفوترة لإصدار سعر صالح.");
     if (v.adjustment < 0 && v.hourlyTotal + v.adjustment < v.minimum) warnings.push("تم الحفاظ على الحد الأدنى للزيارة بعد التعديل اليدوي؛ الخصم لا يمكنه كسره.");
     if (v.actualMargin + .01 < v.targetMargin) warnings.push("الهامش الفعلي أقل من الهدف. راجع الحد الأدنى أو التعديل اليدوي.");
-    if (v.utilization > 1) warnings.push("الزيارات الشهرية تتجاوز سعة العاملات الحالية؛ زد السعة أو خفض المستهدف.");
+    if (v.averageActualMinutes * state.visitsPerWorkerPerDay > state.dailyHours * 60) warnings.push("متوسط مدة الزيارات يتجاوز ساعات الشفت؛ راجع هدف الزيارات اليومي.");
     if (v.material > 0) warnings.push(`تكلفة المستلزمات المرجعية ${money(v.material)} مغطاة حالياً داخل بند المستلزمات الشهري، فلا تُضاف مرة أخرى لهذا السعر.`);
     const warningBox = $("#engine-warnings"); if (warningBox) warningBox.innerHTML = warnings.length ? warnings.map(message => `<div class="engine-warning">${message}</div>`).join("") : '<div class="engine-good">التسعير فوق الحد الأدنى والسعة ضمن النطاق الحالي.</div>';
   };
@@ -141,14 +149,14 @@
   };
 
   const settings = $("#settings");
-  if (settings) settings.innerHTML = `<h2>إعدادات الحوكمة والتسعير</h2><p class="sub">تطبق على هذا المتصفح فقط. الضريبة تُعرض للعميل وتُفصل عن الإيراد والربح.</p><article class="panel engine-panel"><h3>سياسة التسعير والضريبة والسوق</h3><div class="engine-fields"><label>هامش الربح المستهدف<input id="engine-margin" type="number" min="0" max="90" step="1" value="${state.margin * 100}"></label><label>نسبة ضريبة القيمة المضافة<input id="engine-tax" type="number" min="0" max="100" step="1" value="${state.taxRate * 100}"></label><label>سعر السوق المرجعي<input id="engine-market" type="number" min="0" step="1" value="${state.marketPrice}"></label><label>أساس سعر السوق<select id="engine-market-basis"><option value="including">شامل الضريبة</option><option value="excluding">قبل الضريبة</option></select></label><label>الزيارات الشهرية المخططة<input id="engine-visits" type="number" min="0" step="1" value="${state.monthlyVisits}"></label><label>الدور الحالي<select id="engine-role"><option value="admin">مدير النظام</option><option value="pricing">مدير التسعير</option><option value="viewer">مشاهد فقط</option></select></label></div><p><label><input id="engine-tax-enabled" type="checkbox" ${state.taxEnabled ? "checked" : ""}> تفعيل الضريبة في عرض سعر العميل</label></p></article>`;
+  if (settings) settings.innerHTML = `<h2>إعدادات الحوكمة والتسعير</h2><p class="sub">تطبق على هذا المتصفح فقط. الضريبة تُعرض للعميل وتُفصل عن الإيراد والربح.</p><article class="panel engine-panel"><h3>سياسة التسعير والضريبة والسوق</h3><div class="engine-fields"><label>هامش الربح المستهدف<input id="engine-margin" type="number" min="0" max="90" step="1" value="${state.margin * 100}"></label><label>نسبة ضريبة القيمة المضافة<input id="engine-tax" type="number" min="0" max="100" step="1" value="${state.taxRate * 100}"></label><label>سعر السوق المرجعي<input id="engine-market" type="number" min="0" step="1" value="${state.marketPrice}"></label><label>أساس سعر السوق<select id="engine-market-basis"><option value="including">شامل الضريبة</option><option value="excluding">قبل الضريبة</option></select></label><label>نموذج الشفت<select disabled><option>8 ساعات × 6 أيام / أسبوع</option></select></label><label>هدف التنفيذ<select disabled><option>3 زيارات / عاملة / يوم</option></select></label><label>الدور الحالي<select id="engine-role"><option value="admin">مدير النظام</option><option value="pricing">مدير التسعير</option><option value="viewer">مشاهد فقط</option></select></label></div><p><label><input id="engine-tax-enabled" type="checkbox" ${state.taxEnabled ? "checked" : ""}> تفعيل الضريبة في عرض سعر العميل</label></p></article>`;
   if (settings) {
     $("#engine-market-basis").value = state.marketIncludesTax ? "including" : "excluding";
     $("#engine-role").value = state.role;
     $$("input,select", settings).forEach(input => input.addEventListener("input", () => {
       state.margin = number($("#engine-margin").value) / 100; state.taxRate = number($("#engine-tax").value) / 100;
       state.taxEnabled = $("#engine-tax-enabled").checked; state.marketPrice = number($("#engine-market").value);
-      state.marketIncludesTax = $("#engine-market-basis").value === "including"; state.monthlyVisits = number($("#engine-visits").value);
+      state.marketIncludesTax = $("#engine-market-basis").value === "including";
       state.role = $("#engine-role").value; persist(); render();
     }));
   }
@@ -172,7 +180,6 @@
   service.addEventListener("change", () => { loadUnitServiceDefaults(); syncState(); });
   [billableInput, minVisitInput, adjustInput, salaryInput, teamInput, hoursInput].filter(Boolean).forEach(input => input.addEventListener("input", syncState));
   $("#quick-team")?.addEventListener("input", event => { if (teamInput) { teamInput.value = event.target.value; } syncState(); });
-  $("#quick-visits")?.addEventListener("input", event => { state.monthlyVisits = number(event.target.value); const visitsSetting = $("#engine-visits"); if (visitsSetting) visitsSetting.value = state.monthlyVisits; persist(); render(); });
 
   $(".save")?.addEventListener("click", () => {
     const v = calc();
