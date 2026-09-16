@@ -146,7 +146,8 @@
     const summaryRows = $$("#costs .cost-grid article:nth-child(2) .rows p strong");
     if (summaryRows[2]) summaryRows[2].textContent = money(state.transport);
     if (summaryRows[3]) summaryRows[3].textContent = money(v.monthlyMaterials);
-    setText("engine-material-formula", `${money(v.averageMaterial)} × ${state.dailyMaterialTarget} × ${state.workdaysPerMonth} = ${money(v.monthlyMaterials)}`);
+    setText("engine-material-formula", money(v.monthlyMaterials));
+    setText("engine-material-detail", `بناءً على ${state.dailyMaterialTarget} زيارة يومياً × ${state.workdaysPerMonth} يوم عمل، ومتوسط ${money(v.averageMaterial)} مواد لكل زيارة.`);
     setText("hourlyRate", money(v.hourlyRate)); setText("hourlyTotal", money(v.hourlyTotal));
     setText("base", money(v.directCost)); setText("before", money(v.beforeTax)); setText("vat", money(v.vat)); setText("total", money(v.total)); setText("final", money(v.total));
     setText("visitCard", money(v.beforeTax)); setText("marketPrice", money(v.marketComparable)); setText("diff", `${v.marketDifference >= 0 ? "+" : ""}${money(v.marketDifference)}`);
@@ -200,7 +201,7 @@
   }
 
   const costs = $("#costs");
-  if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>التكاليف الثابتة والمواد</h3><p class="sub">النقل والوقود ثابتان عند 2,000 SAR شهرياً للشركة كلها، وليسا تكلفة لكل عاملة. الإدارة والتشغيل خارج النموذج الحالي.</p><div class="engine-fields"><label>النقل والوقود الشهري<input value="2,000 SAR — ثابت للشركة" readonly></label><label>هدف الزيارات اليومي للمواد<input id="engine-material-target" type="number" min="0" step="1" value="${state.dailyMaterialTarget}"></label><div class="engine-stat"><small>معادلة تكلفة المواد</small><strong id="engine-material-formula">—</strong><p class="sub">متوسط تكلفة الزيارة × الهدف اليومي × 26 يوم.</p></div></div></article>`);
+  if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>التكاليف الثابتة والمواد</h3><p class="sub">النقل والوقود ثابتان عند 2,000 SAR شهرياً للشركة كلها. الإدارة والتشغيل غير محسوبين حالياً.</p><div class="engine-fields"><label>النقل والوقود الشهري<input value="2,000 SAR — ثابت للشركة" readonly></label><label>عدد الزيارات المستهدفة يومياً<input id="engine-material-target" type="number" min="0" step="1" value="${state.dailyMaterialTarget}"></label><div class="engine-stat"><small>تكلفة المواد المتوقعة شهرياً</small><strong id="engine-material-formula">—</strong><p class="sub" id="engine-material-detail">—</p></div></div></article>`);
   $("#engine-material-target")?.addEventListener("input", () => { state.dailyMaterialTarget = number($("#engine-material-target").value); persist(); render(); renderScenarios(); });
 
   const dashboard = $("#dash");
