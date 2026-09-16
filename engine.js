@@ -9,7 +9,7 @@
   const materialCost = { 1: 2.9, 1.5: 4.2, 2: 5.3, 2.5: 6.5 };
 
   const defaults = {
-    salary: 3000, team: 8, hours: 208, dailyHours: 8, workdaysPerWeek: 6, workdaysPerMonth: 26, visitsPerWorkerPerDay: 3, dailyMaterialTarget: 24, transport: 2000, supplies: 0, admin: 0,
+    salary: 3000, team: 2, hours: 208, dailyHours: 8, workdaysPerWeek: 6, workdaysPerMonth: 26, visitsPerWorkerPerDay: 3, dailyMaterialTarget: 6, transport: 2000, accommodation: 2000, supplies: 0, admin: 0,
     margin: 0.4, taxRate: 0.15, taxEnabled: true, marketPrice: 128, marketIncludesTax: true,
     monthlyVisits: 310, role: "admin", drafts: [],
     billable: {
@@ -25,7 +25,8 @@
   state.drafts ||= [];
   state.transport = 2000;
   state.admin = 0;
-  state.team = 1;
+  state.team = 2;
+  state.accommodation = 2000;
 
   const addAudit = (action, details) => {
     let items = [];
@@ -48,7 +49,7 @@
   if (!home || !service || !billableInput) return;
   const serviceKey = () => service.selectedIndex === 1 ? "turnover" : "regular";
   if (hoursInput) { hoursInput.value = state.dailyHours * state.workdaysPerMonth; hoursInput.readOnly = true; }
-  if (teamInput) { teamInput.value = 1; teamInput.readOnly = true; }
+  if (teamInput) { teamInput.value = 2; teamInput.readOnly = true; }
 
   const style = document.createElement("style");
   style.textContent = `
@@ -68,7 +69,7 @@
     const averageMaterial = Object.values(materialCost).reduce((sum, value) => sum + value, 0) / Object.keys(materialCost).length;
     const dailyMaterialTarget = team * state.visitsPerWorkerPerDay;
     const monthlyMaterials = averageMaterial * dailyMaterialTarget * state.workdaysPerMonth;
-    const monthlyCost = salary * team + state.transport + monthlyMaterials;
+    const monthlyCost = salary * team + state.transport + state.accommodation + monthlyMaterials;
     const capacity = team * hours;
     const costPerHour = capacity > 0 ? monthlyCost / capacity : 0;
     const hourlyRate = state.margin < 1 ? costPerHour / (1 - state.margin) : 0;
@@ -117,25 +118,25 @@
     const section = $("#scenarios");
     if (!section) return;
     const v = calc();
-    const capacityVisits = state.visitsPerWorkerPerDay * state.workdaysPerMonth;
+    const capacityVisits = v.team * state.visitsPerWorkerPerDay * state.workdaysPerMonth;
     const scenarioPrice = Math.max(
-      (((v.salary + state.transport + v.averageMaterial * capacityVisits) / (state.dailyHours * state.workdaysPerMonth)) / (1 - state.margin)) * v.averageBillable,
+      (((v.salary * v.team + state.transport + state.accommodation + v.averageMaterial * capacityVisits) / (v.team * state.dailyHours * state.workdaysPerMonth)) / (1 - state.margin)) * v.averageBillable,
       state.minVisit.regular,
     );
-    const breakEvenVisits = Math.ceil((v.salary + state.transport) / Math.max(scenarioPrice - v.averageMaterial, 1));
+    const breakEvenVisits = Math.ceil((v.salary * v.team + state.transport + state.accommodation) / Math.max(scenarioPrice - v.averageMaterial, 1));
     const profiles = [
-      { name: "بداية هادئة", note: "بناء ثقة وقاعدة عملاء تدريجياً؛ لا يصل للتعادل خلال السنة الأولى.", tone: "#7892aa", visits: [8, 10, 12, 15, 18, 21, 24, 27, 30, 34, 38, 42] },
-      { name: "نمو متوازن — الموصى به", note: "يصل إلى التعادل التشغيلي في الشهر الخامس؛ أفضل توازن بين الواقعية والسيولة.", tone: "#1e9d85", visits: [20, 28, 38, 48, 56, 62, 66, 70, 72, 74, 76, 78] },
-      { name: "بداية قوية", note: "يصل للتعادل في الشهر الثالث ثم يتحول إلى ربح؛ يحتاج تسويقاً ومبيعات قوية منذ اليوم الأول.", tone: "#d8842c", visits: [40, 50, 58, 64, 68, 72, 74, 76, 78, 78, 78, 78] },
+      { name: "بداية هادئة", note: "بناء ثقة وقاعدة عملاء تدريجياً؛ لا يصل للتعادل خلال السنة الأولى.", tone: "#7892aa", visits: [16, 20, 24, 30, 36, 42, 48, 54, 60, 68, 76, 84] },
+      { name: "نمو متوازن — الموصى به", note: "يصل إلى التعادل التشغيلي في الشهر الخامس؛ أفضل توازن بين الواقعية والسيولة.", tone: "#1e9d85", visits: [48, 64, 82, 104, 126, 136, 142, 148, 152, 154, 156, 156] },
+      { name: "بداية قوية", note: "يصل للتعادل في الشهر الثالث ثم يتحول إلى ربح؛ يحتاج تسويقاً ومبيعات قوية منذ اليوم الأول.", tone: "#d8842c", visits: [90, 110, 130, 140, 146, 150, 152, 154, 156, 156, 156, 156] },
     ];
     const rows = (profile) => profile.visits.map((visits, index) => {
       const materials = visits * v.averageMaterial;
-      const expense = v.salary + state.transport + materials;
+      const expense = v.salary * v.team + state.transport + state.accommodation + materials;
       const revenue = visits * scenarioPrice;
       const profit = revenue - expense;
       return { month: index + 1, visits, revenue, expense, profit };
     });
-    section.innerHTML = `<article class="panel engine-panel"><h2>سيناريوهات السنة الأولى — عاملة واحدة</h2><p class="sub">السقف التشغيلي: ${capacityVisits} زيارة شهرياً. سعر السيناريو المتوسط ${money(scenarioPrice)} قبل الضريبة، والمواد تحسب فعلياً حسب عدد الزيارات.</p><div class="engine-good">نقطة التعادل الشهرية: ${breakEvenVisits} زيارة. تم اختيار سيناريو النمو المتوازن للوصول إليها في الشهر الخامس.</div></article>${profiles.map(profile => {
+    section.innerHTML = `<article class="panel engine-panel"><h2>سيناريوهات السنة الأولى — عاملتان</h2><p class="sub">السقف التشغيلي: ${capacityVisits} زيارة شهرياً. سعر السيناريو المتوسط ${money(scenarioPrice)} قبل الضريبة، والمواد تحسب فعلياً حسب عدد الزيارات.</p><div class="engine-good">نقطة التعادل الشهرية: ${breakEvenVisits} زيارة. تم اختيار سيناريو النمو المتوازن للوصول إليها في الشهر الخامس.</div></article>${profiles.map(profile => {
       const data = rows(profile); const totals = data.reduce((sum, row) => ({ visits: sum.visits + row.visits, revenue: sum.revenue + row.revenue, expense: sum.expense + row.expense, profit: sum.profit + row.profit }), { visits: 0, revenue: 0, expense: 0, profit: 0 });
       const achieved = data.find(row => row.profit >= 0)?.month;
       return `<article class="panel engine-panel"><h3 style="border-right:4px solid ${profile.tone};padding-right:10px">${profile.name}</h3><p class="sub">${profile.note}</p><div class="engine-grid"><div class="engine-stat"><small>التعادل الشهري</small><strong>${achieved ? `شهر ${achieved}` : "بعد السنة الأولى"}</strong></div><div class="engine-stat"><small>زيارات السنة</small><strong>${totals.visits}</strong></div><div class="engine-stat"><small>إيرادات السنة قبل الضريبة</small><strong>${money(totals.revenue)}</strong></div><div class="engine-stat"><small>صافي السنة التشغيلي</small><strong>${money(totals.profit)}</strong></div></div><table class="engine-table"><thead><tr><th>الشهر</th><th>الزيارات</th><th>الإيرادات قبل الضريبة</th><th>المصاريف</th><th>الربح / الخسارة</th></tr></thead><tbody>${data.map(row => `<tr><td>${row.month}</td><td>${row.visits}</td><td>${money(row.revenue)}</td><td>${money(row.expense)}</td><td style="color:${row.profit >= 0 ? "#147558" : "#b45309"}">${money(row.profit)}</td></tr>`).join("")}</tbody></table></article>`;
@@ -149,6 +150,7 @@
     const summaryRows = $$("#costs .cost-grid article:nth-child(2) .rows p strong");
     if (summaryRows[2]) summaryRows[2].textContent = money(state.transport);
     if (summaryRows[3]) summaryRows[3].textContent = money(v.monthlyMaterials);
+    setText("engine-accommodation-summary", money(state.accommodation));
     setText("engine-material-formula", money(v.monthlyMaterials));
     const materialTarget = $("#engine-material-target"); if (materialTarget) materialTarget.value = v.dailyMaterialTarget;
     setText("engine-material-detail", `بناءً على ${v.dailyMaterialTarget} زيارة يومياً × ${state.workdaysPerMonth} يوم عمل، ومتوسط ${money(v.averageMaterial)} مواد لكل زيارة.`);
@@ -205,7 +207,8 @@
   }
 
   const costs = $("#costs");
-  if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>التكاليف الثابتة والمواد</h3><p class="sub">النقل والوقود ثابتان عند 2,000 SAR شهرياً للشركة كلها. الإدارة والتشغيل غير محسوبين حالياً.</p><div class="engine-fields"><label>النقل والوقود الشهري<input value="2,000 SAR — ثابت للشركة" readonly></label><label>هدف الزيارات اليومي للمواد (محسوب تلقائياً)<input id="engine-material-target" type="number" readonly value="0"></label><div class="engine-stat"><small>تكلفة المواد المتوقعة شهرياً</small><strong id="engine-material-formula">—</strong><p class="sub" id="engine-material-detail">—</p></div></div></article>`);
+  if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>التكاليف الثابتة والمواد</h3><p class="sub">النقل والوقود وسكن الموظفين ثابتان للشركة كلها. الإدارة والتشغيل غير محسوبين حالياً.</p><div class="engine-fields"><label>النقل والوقود الشهري<input value="2,000 SAR — ثابت للشركة" readonly></label><label>سكن الموظفين الشهري<input value="2,000 SAR — ثابت للشركة" readonly></label><label>هدف الزيارات اليومي للمواد (محسوب تلقائياً)<input id="engine-material-target" type="number" readonly value="0"></label><div class="engine-stat"><small>تكلفة المواد المتوقعة شهرياً</small><strong id="engine-material-formula">—</strong><p class="sub" id="engine-material-detail">—</p></div></div></article>`);
+  costs?.querySelector(".cost-grid article:nth-child(2) .rows")?.insertAdjacentHTML("beforeend", '<p>سكن الموظفين الشهري<strong id="engine-accommodation-summary">2,000 SAR</strong></p>');
   if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>عينات مرجعية لشراء المستلزمات</h3><p class="sub">أسعار سوق حالية للاسترشاد عند الشراء بالجملة أو بالكرتون. تكلفة المواد في النموذج تبقى تقديراً إجمالياً لكل زيارة، وليست جمعاً مباشراً لهذه العبوات.</p><table class="engine-table"><thead><tr><th>الصنف</th><th>سعر السوق</th><th>الاستخدام التقريبي</th><th>تكلفة الاستخدام</th></tr></thead><tbody><tr><td><a href="https://www.carrefourksa.com/mafsau/en/multi-purpose-cleaner/dac-base-disinf-5l-bakhour-offer/p/752991?offer=offer_carrefour_&sellerId=0000&sid=QCOMM" target="_blank" rel="noreferrer">منظف أرضيات DAC، 5 لتر</a></td><td>21.99 SAR</td><td>50 مل / زيارة</td><td>0.22 SAR</td></tr><tr><td><a href="https://aleithar.sa/en/qs-vinyl-gloves-carton-powder-free-transparent/p1264123435" target="_blank" rel="noreferrer">قفازات فينيل، كرتون 1,000</a></td><td>77.39 SAR</td><td>زوج / زيارة</td><td>0.15 SAR</td></tr><tr><td><a href="https://aryaf.com.sa/ar/wholesale-medium-thickness-trash-bags-50-gal-500-bags/p1060182784" target="_blank" rel="noreferrer">أكياس نفايات، 500 كيس</a></td><td>175.70 SAR</td><td>كيس / زيارة</td><td>0.35 SAR</td></tr><tr><td><a href="https://www.carrefourksa.com/mafsau/ar/c/02245" target="_blank" rel="noreferrer">منظف زجاج DAC، 4 لتر</a></td><td>28.95 SAR</td><td>20 مل / زيارة</td><td>0.14 SAR</td></tr></tbody></table><p class="sub">الأسعار تتغير حسب المورد والعروض. تشمل تكلفة الزيارة في النموذج أيضاً استهلاك المايكروفايبر ومنظفات الحمام والمطبخ والفاقد التشغيلي.</p></article>`);
 
   const dashboard = $("#dash");
@@ -221,7 +224,7 @@
   service.addEventListener("change", () => { loadUnitServiceDefaults(); syncState(); });
   [minVisitInput, adjustInput, salaryInput, teamInput, hoursInput].filter(Boolean).forEach(input => input.addEventListener("input", syncState));
   $("#quick-team")?.addEventListener("input", event => { if (teamInput) { teamInput.value = event.target.value; } syncState(); });
-  const quickTeam = $("#quick-team"); if (quickTeam) { quickTeam.value = 1; quickTeam.readOnly = true; }
+  const quickTeam = $("#quick-team"); if (quickTeam) { quickTeam.value = 2; quickTeam.readOnly = true; }
 
   $(".save")?.addEventListener("click", () => {
     const v = calc();
