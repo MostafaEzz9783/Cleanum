@@ -64,7 +64,8 @@
     const minimum = number(minVisitInput?.value);
     const adjustment = number(adjustInput?.value);
     const averageMaterial = Object.values(materialCost).reduce((sum, value) => sum + value, 0) / Object.keys(materialCost).length;
-    const monthlyMaterials = averageMaterial * state.dailyMaterialTarget * state.workdaysPerMonth;
+    const dailyMaterialTarget = team * state.visitsPerWorkerPerDay;
+    const monthlyMaterials = averageMaterial * dailyMaterialTarget * state.workdaysPerMonth;
     const monthlyCost = salary * team + state.transport + monthlyMaterials;
     const capacity = team * hours;
     const costPerHour = capacity > 0 ? monthlyCost / capacity : 0;
@@ -89,7 +90,7 @@
     const requiredHours = visits * averageBillable;
     const utilization = capacity ? requiredHours / capacity : 0;
     const marketComparable = state.marketIncludesTax ? total : beforeTax;
-    return { unit, serviceKey: selectedService, salary, team, hours, billable, minimum, adjustment, monthlyCost, capacity, costPerHour, directCost, hourlyRate, hourlyTotal, beforeTax, vat, total, actualMargin, targetMargin, visits, revenue, vatCollected, profit, requiredHours, utilization, marketComparable, marketDifference: marketComparable - state.marketPrice, material: materialCost[unit] * (selectedService === "turnover" ? 1.4 : 1), averageMaterial, monthlyMaterials, averageBillable, averageActualMinutes, averageBeforeTax, averageTotal, shiftRevenue };
+    return { unit, serviceKey: selectedService, salary, team, hours, billable, minimum, adjustment, monthlyCost, capacity, costPerHour, directCost, hourlyRate, hourlyTotal, beforeTax, vat, total, actualMargin, targetMargin, visits, revenue, vatCollected, profit, requiredHours, utilization, marketComparable, marketDifference: marketComparable - state.marketPrice, material: materialCost[unit] * (selectedService === "turnover" ? 1.4 : 1), averageMaterial, dailyMaterialTarget, monthlyMaterials, averageBillable, averageActualMinutes, averageBeforeTax, averageTotal, shiftRevenue };
   };
 
   const renderLibrary = () => {
@@ -147,7 +148,8 @@
     if (summaryRows[2]) summaryRows[2].textContent = money(state.transport);
     if (summaryRows[3]) summaryRows[3].textContent = money(v.monthlyMaterials);
     setText("engine-material-formula", money(v.monthlyMaterials));
-    setText("engine-material-detail", `بناءً على ${state.dailyMaterialTarget} زيارة يومياً × ${state.workdaysPerMonth} يوم عمل، ومتوسط ${money(v.averageMaterial)} مواد لكل زيارة.`);
+    const materialTarget = $("#engine-material-target"); if (materialTarget) materialTarget.value = v.dailyMaterialTarget;
+    setText("engine-material-detail", `بناءً على ${v.dailyMaterialTarget} زيارة يومياً × ${state.workdaysPerMonth} يوم عمل، ومتوسط ${money(v.averageMaterial)} مواد لكل زيارة.`);
     setText("hourlyRate", money(v.hourlyRate)); setText("hourlyTotal", money(v.hourlyTotal));
     setText("base", money(v.directCost)); setText("before", money(v.beforeTax)); setText("vat", money(v.vat)); setText("total", money(v.total)); setText("final", money(v.total));
     setText("visitCard", money(v.beforeTax)); setText("marketPrice", money(v.marketComparable)); setText("diff", `${v.marketDifference >= 0 ? "+" : ""}${money(v.marketDifference)}`);
@@ -162,13 +164,13 @@
     const quickVisits = $("#quick-visits"); if (quickVisits) { quickVisits.value = v.visits; quickVisits.readOnly = true; }
 
     const health = $("#financial-health");
-    if (health) health.innerHTML = `<h3>صحة التسعير والتشغيل</h3><div class="engine-grid"><div class="engine-stat"><small>متوسط سعر الزيارة (شامل الضريبة)</small><strong>${money(v.averageTotal)}</strong></div><div class="engine-stat"><small>متوسط إيراد الشفت قبل الضريبة</small><strong>${money(v.shiftRevenue)}</strong></div><div class="engine-stat"><small>تكلفة المواد الشهرية</small><strong>${money(v.monthlyMaterials)}</strong><p class="sub">هدف ${state.dailyMaterialTarget} زيارة يومياً</p></div><div class="engine-stat"><small>الإيراد الشهري قبل الضريبة</small><strong>${money(v.revenue)}</strong></div><div class="engine-stat"><small>ربح تشغيلي قبل الضريبة</small><strong>${money(v.profit)}</strong></div><div class="engine-stat"><small>زمن 3 زيارات / الشفت</small><strong>${(v.averageActualMinutes * 3).toFixed(0)} / 480 دقيقة</strong></div></div>`;
+    if (health) health.innerHTML = `<h3>صحة التسعير والتشغيل</h3><div class="engine-grid"><div class="engine-stat"><small>متوسط سعر الزيارة (شامل الضريبة)</small><strong>${money(v.averageTotal)}</strong></div><div class="engine-stat"><small>متوسط إيراد الشفت قبل الضريبة</small><strong>${money(v.shiftRevenue)}</strong></div><div class="engine-stat"><small>تكلفة المواد الشهرية</small><strong>${money(v.monthlyMaterials)}</strong><p class="sub">${v.dailyMaterialTarget} زيارة يومياً محسوبة تلقائياً</p></div><div class="engine-stat"><small>الإيراد الشهري قبل الضريبة</small><strong>${money(v.revenue)}</strong></div><div class="engine-stat"><small>ربح تشغيلي قبل الضريبة</small><strong>${money(v.profit)}</strong></div><div class="engine-stat"><small>زمن 3 زيارات / الشفت</small><strong>${(v.averageActualMinutes * 3).toFixed(0)} / 480 دقيقة</strong></div></div>`;
     const warnings = [];
     if (!v.team || !v.hours || !v.billable) warnings.push("أدخل عدد العاملات وساعات السعة ووقت الفوترة لإصدار سعر صالح.");
     if (v.adjustment < 0 && v.hourlyTotal + v.adjustment < v.minimum) warnings.push("تم الحفاظ على الحد الأدنى للزيارة بعد التعديل اليدوي؛ الخصم لا يمكنه كسره.");
     if (v.actualMargin + .01 < v.targetMargin) warnings.push("الهامش الفعلي أقل من الهدف. راجع الحد الأدنى أو التعديل اليدوي.");
     if (v.averageActualMinutes * state.visitsPerWorkerPerDay > state.dailyHours * 60) warnings.push("متوسط مدة الزيارات يتجاوز ساعات الشفت؛ راجع هدف الزيارات اليومي.");
-    if (v.material > 0) warnings.push(`تكلفة المستلزمات الشهرية تُحسب من هدف ${state.dailyMaterialTarget} زيارة يومياً، بمتوسط ${money(v.averageMaterial)} للزيارة؛ فلا تُضاف مرة أخرى لسعر الزيارة.`);
+    if (v.material > 0) warnings.push(`تكلفة المستلزمات الشهرية تُحسب تلقائياً من ${v.team} عاملات × 3 زيارات يومياً، بمتوسط ${money(v.averageMaterial)} للزيارة؛ فلا تُضاف مرة أخرى لسعر الزيارة.`);
     const warningBox = $("#engine-warnings"); if (warningBox) warningBox.innerHTML = warnings.length ? warnings.map(message => `<div class="engine-warning">${message}</div>`).join("") : '<div class="engine-good">التسعير فوق الحد الأدنى والسعة ضمن النطاق الحالي.</div>';
   };
 
@@ -201,8 +203,7 @@
   }
 
   const costs = $("#costs");
-  if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>التكاليف الثابتة والمواد</h3><p class="sub">النقل والوقود ثابتان عند 2,000 SAR شهرياً للشركة كلها. الإدارة والتشغيل غير محسوبين حالياً.</p><div class="engine-fields"><label>النقل والوقود الشهري<input value="2,000 SAR — ثابت للشركة" readonly></label><label>عدد الزيارات المستهدفة يومياً<input id="engine-material-target" type="number" min="0" step="1" value="${state.dailyMaterialTarget}"></label><div class="engine-stat"><small>تكلفة المواد المتوقعة شهرياً</small><strong id="engine-material-formula">—</strong><p class="sub" id="engine-material-detail">—</p></div></div></article>`);
-  $("#engine-material-target")?.addEventListener("input", () => { state.dailyMaterialTarget = number($("#engine-material-target").value); persist(); render(); renderScenarios(); });
+  if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>التكاليف الثابتة والمواد</h3><p class="sub">النقل والوقود ثابتان عند 2,000 SAR شهرياً للشركة كلها. الإدارة والتشغيل غير محسوبين حالياً.</p><div class="engine-fields"><label>النقل والوقود الشهري<input value="2,000 SAR — ثابت للشركة" readonly></label><label>هدف الزيارات اليومي للمواد (محسوب تلقائياً)<input id="engine-material-target" type="number" readonly value="0"></label><div class="engine-stat"><small>تكلفة المواد المتوقعة شهرياً</small><strong id="engine-material-formula">—</strong><p class="sub" id="engine-material-detail">—</p></div></div></article>`);
 
   const dashboard = $("#dash");
   if (dashboard) dashboard.insertAdjacentHTML("beforeend", '<article id="financial-health" class="panel engine-panel"></article><section id="engine-warnings"></section>');
