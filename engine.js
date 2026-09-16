@@ -9,7 +9,7 @@
   const materialCost = { 1: 2.9, 1.5: 4.2, 2: 5.3, 2.5: 6.5 };
 
   const defaults = {
-    salary: 3000, team: 8, hours: 208, dailyHours: 8, workdaysPerWeek: 6, workdaysPerMonth: 26, visitsPerWorkerPerDay: 3, transport: 12400, supplies: 5700, admin: 6800,
+    salary: 3000, team: 8, hours: 208, dailyHours: 8, workdaysPerWeek: 6, workdaysPerMonth: 26, visitsPerWorkerPerDay: 3, dailyMaterialTarget: 24, transport: 2000, supplies: 0, admin: 0,
     margin: 0.4, taxRate: 0.15, taxEnabled: true, marketPrice: 128, marketIncludesTax: true,
     monthlyVisits: 310, role: "admin", drafts: [],
     billable: {
@@ -23,6 +23,8 @@
   state.billable = { ...defaults.billable, ...state.billable };
   state.minVisit = { ...defaults.minVisit, ...state.minVisit };
   state.drafts ||= [];
+  state.transport = 2000;
+  state.admin = 0;
 
   const addAudit = (action, details) => {
     let items = [];
@@ -61,7 +63,9 @@
     const billable = Math.max(1, Math.round(actualMinutes[unit] / 60));
     const minimum = number(minVisitInput?.value);
     const adjustment = number(adjustInput?.value);
-    const monthlyCost = salary * team + state.transport + state.supplies + state.admin;
+    const averageMaterial = Object.values(materialCost).reduce((sum, value) => sum + value, 0) / Object.keys(materialCost).length;
+    const monthlyMaterials = averageMaterial * state.dailyMaterialTarget * state.workdaysPerMonth;
+    const monthlyCost = salary * team + state.transport + monthlyMaterials;
     const capacity = team * hours;
     const costPerHour = capacity > 0 ? monthlyCost / capacity : 0;
     const hourlyRate = state.margin < 1 ? costPerHour / (1 - state.margin) : 0;
@@ -85,7 +89,7 @@
     const requiredHours = visits * averageBillable;
     const utilization = capacity ? requiredHours / capacity : 0;
     const marketComparable = state.marketIncludesTax ? total : beforeTax;
-    return { unit, serviceKey: selectedService, salary, team, hours, billable, minimum, adjustment, monthlyCost, capacity, costPerHour, directCost, hourlyRate, hourlyTotal, beforeTax, vat, total, actualMargin, targetMargin, visits, revenue, vatCollected, profit, requiredHours, utilization, marketComparable, marketDifference: marketComparable - state.marketPrice, material: materialCost[unit] * (selectedService === "turnover" ? 1.4 : 1), averageBillable, averageActualMinutes, averageBeforeTax, averageTotal, shiftRevenue };
+    return { unit, serviceKey: selectedService, salary, team, hours, billable, minimum, adjustment, monthlyCost, capacity, costPerHour, directCost, hourlyRate, hourlyTotal, beforeTax, vat, total, actualMargin, targetMargin, visits, revenue, vatCollected, profit, requiredHours, utilization, marketComparable, marketDifference: marketComparable - state.marketPrice, material: materialCost[unit] * (selectedService === "turnover" ? 1.4 : 1), averageMaterial, monthlyMaterials, averageBillable, averageActualMinutes, averageBeforeTax, averageTotal, shiftRevenue };
   };
 
   const renderLibrary = () => {
@@ -110,6 +114,10 @@
     const v = calc();
     setText("costHour", money(v.costPerHour)); setText("costHour2", money(v.costPerHour));
     setText("monthCard", money(v.monthlyCost)); setText("monthly", money(v.monthlyCost));
+    const summaryRows = $$("#costs .cost-grid article:nth-child(2) .rows p strong");
+    if (summaryRows[2]) summaryRows[2].textContent = money(state.transport);
+    if (summaryRows[3]) summaryRows[3].textContent = money(v.monthlyMaterials);
+    setText("engine-material-formula", `${money(v.averageMaterial)} × ${state.dailyMaterialTarget} × ${state.workdaysPerMonth} = ${money(v.monthlyMaterials)}`);
     setText("hourlyRate", money(v.hourlyRate)); setText("hourlyTotal", money(v.hourlyTotal));
     setText("base", money(v.directCost)); setText("before", money(v.beforeTax)); setText("vat", money(v.vat)); setText("total", money(v.total)); setText("final", money(v.total));
     setText("visitCard", money(v.beforeTax)); setText("marketPrice", money(v.marketComparable)); setText("diff", `${v.marketDifference >= 0 ? "+" : ""}${money(v.marketDifference)}`);
@@ -124,13 +132,13 @@
     const quickVisits = $("#quick-visits"); if (quickVisits) { quickVisits.value = v.visits; quickVisits.readOnly = true; }
 
     const health = $("#financial-health");
-    if (health) health.innerHTML = `<h3>صحة التسعير والتشغيل</h3><div class="engine-grid"><div class="engine-stat"><small>متوسط سعر الزيارة (شامل الضريبة)</small><strong>${money(v.averageTotal)}</strong></div><div class="engine-stat"><small>متوسط إيراد الشفت قبل الضريبة</small><strong>${money(v.shiftRevenue)}</strong></div><div class="engine-stat"><small>الإيراد الشهري قبل الضريبة</small><strong>${money(v.revenue)}</strong></div><div class="engine-stat"><small>ربح تشغيلي قبل الضريبة</small><strong>${money(v.profit)}</strong></div><div class="engine-stat"><small>نقطة التعادل</small><strong>${Math.ceil(v.monthlyCost / Math.max(v.averageBeforeTax, 1))} زيارة</strong></div><div class="engine-stat"><small>زمن 3 زيارات / الشفت</small><strong>${(v.averageActualMinutes * 3).toFixed(0)} / 480 دقيقة</strong></div></div>`;
+    if (health) health.innerHTML = `<h3>صحة التسعير والتشغيل</h3><div class="engine-grid"><div class="engine-stat"><small>متوسط سعر الزيارة (شامل الضريبة)</small><strong>${money(v.averageTotal)}</strong></div><div class="engine-stat"><small>متوسط إيراد الشفت قبل الضريبة</small><strong>${money(v.shiftRevenue)}</strong></div><div class="engine-stat"><small>تكلفة المواد الشهرية</small><strong>${money(v.monthlyMaterials)}</strong><p class="sub">هدف ${state.dailyMaterialTarget} زيارة يومياً</p></div><div class="engine-stat"><small>الإيراد الشهري قبل الضريبة</small><strong>${money(v.revenue)}</strong></div><div class="engine-stat"><small>ربح تشغيلي قبل الضريبة</small><strong>${money(v.profit)}</strong></div><div class="engine-stat"><small>زمن 3 زيارات / الشفت</small><strong>${(v.averageActualMinutes * 3).toFixed(0)} / 480 دقيقة</strong></div></div>`;
     const warnings = [];
     if (!v.team || !v.hours || !v.billable) warnings.push("أدخل عدد العاملات وساعات السعة ووقت الفوترة لإصدار سعر صالح.");
     if (v.adjustment < 0 && v.hourlyTotal + v.adjustment < v.minimum) warnings.push("تم الحفاظ على الحد الأدنى للزيارة بعد التعديل اليدوي؛ الخصم لا يمكنه كسره.");
     if (v.actualMargin + .01 < v.targetMargin) warnings.push("الهامش الفعلي أقل من الهدف. راجع الحد الأدنى أو التعديل اليدوي.");
     if (v.averageActualMinutes * state.visitsPerWorkerPerDay > state.dailyHours * 60) warnings.push("متوسط مدة الزيارات يتجاوز ساعات الشفت؛ راجع هدف الزيارات اليومي.");
-    if (v.material > 0) warnings.push(`تكلفة المستلزمات المرجعية ${money(v.material)} مغطاة حالياً داخل بند المستلزمات الشهري، فلا تُضاف مرة أخرى لهذا السعر.`);
+    if (v.material > 0) warnings.push(`تكلفة المستلزمات الشهرية تُحسب من هدف ${state.dailyMaterialTarget} زيارة يومياً، بمتوسط ${money(v.averageMaterial)} للزيارة؛ فلا تُضاف مرة أخرى لسعر الزيارة.`);
     const warningBox = $("#engine-warnings"); if (warningBox) warningBox.innerHTML = warnings.length ? warnings.map(message => `<div class="engine-warning">${message}</div>`).join("") : '<div class="engine-good">التسعير فوق الحد الأدنى والسعة ضمن النطاق الحالي.</div>';
   };
 
@@ -163,10 +171,8 @@
   }
 
   const costs = $("#costs");
-  if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>تكاليف شهرية قابلة للتعديل</h3><p class="sub">تكلفة الزيارة مبنية على عاملة واحدة: إجمالي التكلفة الشهرية ÷ (عدد العاملات × ساعات الفوترة المتوقعة).</p><div class="engine-fields"><label>النقل والوقود<input id="engine-transport" type="number" min="0" value="${state.transport}"></label><label>المستلزمات (يشمل المواد)<input id="engine-supplies" type="number" min="0" value="${state.supplies}"></label><label>الإدارة والتشغيل<input id="engine-admin" type="number" min="0" value="${state.admin}"></label></div></article>`);
-  ["engine-transport", "engine-supplies", "engine-admin"].forEach(id => $("#" + id)?.addEventListener("input", () => {
-    state.transport = number($("#engine-transport").value); state.supplies = number($("#engine-supplies").value); state.admin = number($("#engine-admin").value); persist(); render();
-  }));
+  if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>التكاليف الثابتة والمواد</h3><p class="sub">النقل والوقود ثابتان عند 2,000 SAR شهرياً للشركة كلها، وليسا تكلفة لكل عاملة. الإدارة والتشغيل خارج النموذج الحالي.</p><div class="engine-fields"><label>النقل والوقود الشهري<input value="2,000 SAR — ثابت للشركة" readonly></label><label>هدف الزيارات اليومي للمواد<input id="engine-material-target" type="number" min="0" step="1" value="${state.dailyMaterialTarget}"></label><div class="engine-stat"><small>معادلة تكلفة المواد</small><strong id="engine-material-formula">—</strong><p class="sub">متوسط تكلفة الزيارة × الهدف اليومي × 26 يوم.</p></div></div></article>`);
+  $("#engine-material-target")?.addEventListener("input", () => { state.dailyMaterialTarget = number($("#engine-material-target").value); persist(); render(); });
 
   const dashboard = $("#dash");
   if (dashboard) dashboard.insertAdjacentHTML("beforeend", '<article id="financial-health" class="panel engine-panel"></article><section id="engine-warnings"></section>');
