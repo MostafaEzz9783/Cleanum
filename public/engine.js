@@ -25,6 +25,7 @@
   state.drafts ||= [];
   state.transport = 2000;
   state.admin = 0;
+  state.team = 1;
 
   const addAudit = (action, details) => {
     let items = [];
@@ -47,6 +48,7 @@
   if (!home || !service || !billableInput) return;
   const serviceKey = () => service.selectedIndex === 1 ? "turnover" : "regular";
   if (hoursInput) { hoursInput.value = state.dailyHours * state.workdaysPerMonth; hoursInput.readOnly = true; }
+  if (teamInput) { teamInput.value = 1; teamInput.readOnly = true; }
 
   const style = document.createElement("style");
   style.textContent = `
@@ -204,6 +206,7 @@
 
   const costs = $("#costs");
   if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>التكاليف الثابتة والمواد</h3><p class="sub">النقل والوقود ثابتان عند 2,000 SAR شهرياً للشركة كلها. الإدارة والتشغيل غير محسوبين حالياً.</p><div class="engine-fields"><label>النقل والوقود الشهري<input value="2,000 SAR — ثابت للشركة" readonly></label><label>هدف الزيارات اليومي للمواد (محسوب تلقائياً)<input id="engine-material-target" type="number" readonly value="0"></label><div class="engine-stat"><small>تكلفة المواد المتوقعة شهرياً</small><strong id="engine-material-formula">—</strong><p class="sub" id="engine-material-detail">—</p></div></div></article>`);
+  if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>عينات مرجعية لشراء المستلزمات</h3><p class="sub">أسعار سوق حالية للاسترشاد عند الشراء بالجملة أو بالكرتون. تكلفة المواد في النموذج تبقى تقديراً إجمالياً لكل زيارة، وليست جمعاً مباشراً لهذه العبوات.</p><table class="engine-table"><thead><tr><th>الصنف</th><th>سعر السوق</th><th>الاستخدام التقريبي</th><th>تكلفة الاستخدام</th></tr></thead><tbody><tr><td><a href="https://www.carrefourksa.com/mafsau/en/multi-purpose-cleaner/dac-base-disinf-5l-bakhour-offer/p/752991?offer=offer_carrefour_&sellerId=0000&sid=QCOMM" target="_blank" rel="noreferrer">منظف أرضيات DAC، 5 لتر</a></td><td>21.99 SAR</td><td>50 مل / زيارة</td><td>0.22 SAR</td></tr><tr><td><a href="https://aleithar.sa/en/qs-vinyl-gloves-carton-powder-free-transparent/p1264123435" target="_blank" rel="noreferrer">قفازات فينيل، كرتون 1,000</a></td><td>77.39 SAR</td><td>زوج / زيارة</td><td>0.15 SAR</td></tr><tr><td><a href="https://aryaf.com.sa/ar/wholesale-medium-thickness-trash-bags-50-gal-500-bags/p1060182784" target="_blank" rel="noreferrer">أكياس نفايات، 500 كيس</a></td><td>175.70 SAR</td><td>كيس / زيارة</td><td>0.35 SAR</td></tr><tr><td><a href="https://www.carrefourksa.com/mafsau/ar/c/02245" target="_blank" rel="noreferrer">منظف زجاج DAC، 4 لتر</a></td><td>28.95 SAR</td><td>20 مل / زيارة</td><td>0.14 SAR</td></tr></tbody></table><p class="sub">الأسعار تتغير حسب المورد والعروض. تشمل تكلفة الزيارة في النموذج أيضاً استهلاك المايكروفايبر ومنظفات الحمام والمطبخ والفاقد التشغيلي.</p></article>`);
 
   const dashboard = $("#dash");
   if (dashboard) dashboard.insertAdjacentHTML("beforeend", '<article id="financial-health" class="panel engine-panel"></article><section id="engine-warnings"></section>');
@@ -218,6 +221,7 @@
   service.addEventListener("change", () => { loadUnitServiceDefaults(); syncState(); });
   [minVisitInput, adjustInput, salaryInput, teamInput, hoursInput].filter(Boolean).forEach(input => input.addEventListener("input", syncState));
   $("#quick-team")?.addEventListener("input", event => { if (teamInput) { teamInput.value = event.target.value; } syncState(); });
+  const quickTeam = $("#quick-team"); if (quickTeam) { quickTeam.value = 1; quickTeam.readOnly = true; }
 
   $(".save")?.addEventListener("click", () => {
     const v = calc();
