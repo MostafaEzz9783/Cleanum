@@ -126,15 +126,13 @@
     if (!section) return;
     const v = calc();
     const capacityVisits = v.team * state.visitsPerWorkerPerDay * state.workdaysPerMonth;
-    const scenarioPrice = Math.max(
-      (((v.salary * v.team + state.transport + state.accommodation + v.averageMaterial * capacityVisits) / (v.team * state.dailyHours * state.workdaysPerMonth)) / (1 - state.margin)) * v.averageBillable,
-      state.minVisit.regular,
-    );
+    const averageDirectVisitCost = v.employeeCostPerHour * v.averageBillable + v.averageMaterial;
+    const scenarioPrice = Math.max(averageDirectVisitCost / (1 - state.margin), state.minVisit.regular);
     const breakEvenVisits = Math.ceil((v.salary * v.team + state.transport + state.accommodation) / Math.max(scenarioPrice - v.averageMaterial, 1));
     const profiles = [
       { name: "بداية هادئة", note: "بناء ثقة وقاعدة عملاء تدريجياً؛ لا يصل للتعادل خلال السنة الأولى.", tone: "#7892aa", visits: [16, 20, 24, 30, 36, 42, 48, 54, 60, 68, 76, 84] },
-      { name: "نمو متوازن — الموصى به", note: "يصل إلى التعادل التشغيلي في الشهر الخامس؛ أفضل توازن بين الواقعية والسيولة.", tone: "#1e9d85", visits: [48, 64, 82, 104, 126, 136, 142, 148, 152, 154, 156, 156] },
-      { name: "بداية قوية", note: "يصل للتعادل في الشهر الثالث ثم يتحول إلى ربح؛ يحتاج تسويقاً ومبيعات قوية منذ اليوم الأول.", tone: "#d8842c", visits: [90, 110, 130, 140, 146, 150, 152, 154, 156, 156, 156, 156] },
+      { name: "نمو متوازن — الموصى به", note: "يصل إلى التعادل التشغيلي في الشهر الخامس؛ أفضل توازن بين الواقعية والسيولة.", tone: "#1e9d85", visits: [50, 75, 100, 120, 140, 145, 150, 152, 154, 156, 156, 156] },
+      { name: "بداية قوية", note: "يصل للتعادل في الشهر الثالث ثم يتحول إلى ربح؛ يحتاج تسويقاً ومبيعات قوية منذ اليوم الأول.", tone: "#d8842c", visits: [100, 125, 140, 145, 150, 152, 154, 156, 156, 156, 156, 156] },
     ];
     const rows = (profile) => profile.visits.map((visits, index) => {
       const materials = visits * v.averageMaterial;
