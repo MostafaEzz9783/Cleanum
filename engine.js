@@ -5,8 +5,8 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const money = (value) => `${Number(value || 0).toLocaleString("en-SA", { maximumFractionDigits: 1 })} SAR`;
   const number = (value) => Number.parseFloat(value) || 0;
-  const actualMinutes = { 1: 45, 1.5: 170, 2: 200, 2.5: 135 };
-  const materialCost = { 1: 2.9, 1.5: 4.2, 2: 5.3, 2.5: 6.5 };
+  const actualMinutes = { 0.5: 75, 1: 75, 1.5: 120, 2: 150 };
+  const materialCost = { 0.5: 2.2, 1: 2.9, 1.5: 4.2, 2: 5.3 };
 
   const defaults = {
     salary: 3000, team: 2, hours: 208, dailyHours: 8, workdaysPerWeek: 6, workdaysPerMonth: 26, visitsPerWorkerPerDay: 3, dailyMaterialTarget: 6, transport: 2000, accommodation: 2000, supplies: 0, admin: 0,
@@ -47,6 +47,7 @@
   const teamInput = $("#team");
   const hoursInput = $("#hours");
   if (!home || !service || !billableInput) return;
+  home.innerHTML = '<option value="0.5">Studio</option><option value="1">1BR</option><option value="1.5">2BR</option><option value="2">3BR</option>';
   const serviceKey = () => service.selectedIndex === 1 ? "turnover" : "regular";
   if (hoursInput) { hoursInput.value = state.dailyHours * state.workdaysPerMonth; hoursInput.readOnly = true; }
   if (teamInput) { teamInput.value = 2; teamInput.readOnly = true; }
@@ -63,7 +64,8 @@
     const salary = number(salaryInput?.value || state.salary);
     const team = number(teamInput?.value || state.team);
     const hours = state.dailyHours * state.workdaysPerMonth;
-    const billable = Math.max(1, Math.round(actualMinutes[unit] / 60));
+    const billableMinutes = actualMinutes[unit];
+    const billable = billableMinutes / 60;
     const minimum = number(minVisitInput?.value);
     const adjustment = number(adjustInput?.value);
     const averageMaterial = Object.values(materialCost).reduce((sum, value) => sum + value, 0) / Object.keys(materialCost).length;
@@ -80,7 +82,7 @@
     const total = beforeTax + vat;
     const targetMargin = state.margin * 100;
     const actualMargin = beforeTax > 0 ? ((beforeTax - directCost) / beforeTax) * 100 : 0;
-    const averageBillable = Object.values(actualMinutes).reduce((sum, minutes) => sum + Math.max(1, Math.round(minutes / 60)), 0) / 4;
+    const averageBillable = Object.values(actualMinutes).reduce((sum, minutes) => sum + minutes / 60, 0) / 4;
     const averageActualMinutes = Object.values(actualMinutes).reduce((sum, value) => sum + value, 0) / 4;
     const averageBeforeTax = Math.max(hourlyRate * averageBillable, state.minVisit.regular);
     const averageVat = state.taxEnabled ? averageBeforeTax * state.taxRate : 0;
@@ -93,7 +95,7 @@
     const requiredHours = visits * averageBillable;
     const utilization = capacity ? requiredHours / capacity : 0;
     const marketComparable = state.marketIncludesTax ? total : beforeTax;
-    return { unit, serviceKey: selectedService, salary, team, hours, billable, minimum, adjustment, monthlyCost, capacity, costPerHour, directCost, hourlyRate, hourlyTotal, beforeTax, vat, total, actualMargin, targetMargin, visits, revenue, vatCollected, profit, requiredHours, utilization, marketComparable, marketDifference: marketComparable - state.marketPrice, material: materialCost[unit] * (selectedService === "turnover" ? 1.4 : 1), averageMaterial, dailyMaterialTarget, monthlyMaterials, averageBillable, averageActualMinutes, averageBeforeTax, averageTotal, shiftRevenue };
+    return { unit, serviceKey: selectedService, salary, team, hours, billable, billableMinutes, minimum, adjustment, monthlyCost, capacity, costPerHour, directCost, hourlyRate, hourlyTotal, beforeTax, vat, total, actualMargin, targetMargin, visits, revenue, vatCollected, profit, requiredHours, utilization, marketComparable, marketDifference: marketComparable - state.marketPrice, material: materialCost[unit] * (selectedService === "turnover" ? 1.4 : 1), averageMaterial, dailyMaterialTarget, monthlyMaterials, averageBillable, averageActualMinutes, averageBeforeTax, averageTotal, shiftRevenue };
   };
 
   const renderLibrary = () => {
@@ -152,12 +154,12 @@
     setText("engine-fixed-monthly", money(state.transport + state.accommodation));
     setText("engine-material-average", money(v.averageMaterial));
     setText("engine-material-monthly", money(v.monthlyMaterials));
-    setText("engine-employee-hourly", money(v.costPerHour / v.team));
+    setText("engine-employee-hourly", money(v.costPerHour / v.team / 2));
     setText("engine-material-hourly", money(v.monthlyMaterials / v.capacity));
     setText("engine-material-formula", money(v.monthlyMaterials));
     const materialTarget = $("#engine-material-target"); if (materialTarget) materialTarget.value = v.dailyMaterialTarget;
     setText("engine-material-detail", `بناءً على ${v.dailyMaterialTarget} زيارة يومياً × ${state.workdaysPerMonth} يوم عمل، ومتوسط ${money(v.averageMaterial)} مواد لكل زيارة.`);
-    setText("hourlyRate", money(v.hourlyRate)); setText("hourlyTotal", money(v.hourlyTotal));
+    setText("hourlyRate", money(v.hourlyRate)); setText("hourlyTotal", money(v.hourlyTotal)); setText("actual", `${v.billableMinutes} دقيقة`);
     setText("base", money(v.directCost)); setText("before", money(v.beforeTax)); setText("vat", money(v.vat)); setText("total", money(v.total)); setText("final", money(v.total));
     setText("visitCard", money(v.beforeTax)); setText("marketPrice", money(v.marketComparable)); setText("diff", `${v.marketDifference >= 0 ? "+" : ""}${money(v.marketDifference)}`);
     setText("material-cost", money(v.material));
@@ -184,9 +186,9 @@
   const loadUnitServiceDefaults = () => {
     const unit = home.value;
     const selectedService = serviceKey();
-    billableInput.value = Math.max(1, Math.round(actualMinutes[unit] / 60));
+    billableInput.value = actualMinutes[unit];
     billableInput.readOnly = true;
-    if (billableInput.parentElement?.firstChild) billableInput.parentElement.firstChild.nodeValue = "الوقت القابل للفوترة (وقت التنظيف مقرب لأقرب ساعة)";
+    if (billableInput.parentElement?.firstChild) billableInput.parentElement.firstChild.nodeValue = "وقت التنظيف والفوترة (بالدقائق)";
     if (minVisitInput) minVisitInput.value = state.minVisit[selectedService];
   };
   const syncState = () => {
@@ -211,7 +213,7 @@
 
   const costs = $("#costs");
   const costSummary = costs?.querySelector(".cost-grid article:nth-child(2)");
-  if (costSummary) costSummary.innerHTML = `<h2>ملخص التكاليف</h2><div class="rows"><p>إجمالي التكلفة الشهرية الحالية<strong id="monthly">—</strong></p><p>التكلفة الشهرية لتشغيل الموظفات<strong id="engine-salary-monthly">—</strong></p><p class="sub" style="margin-top:-7px">راتب الموظفات اليومي: <strong id="engine-salary-daily">—</strong> × 26 يوم عمل</p><p>المصاريف الثابتة الشهرية<strong id="engine-fixed-monthly">—</strong></p><p class="sub" style="margin-top:-7px">سكن الموظفين 2,000 + السيارة/النقل 2,000</p><p>مصاريف التشغيل المتغيرة لكل زيارة<strong id="engine-material-average">—</strong></p><p class="sub" style="margin-top:-7px">متوسط المواد فقط؛ مجموع مواد الشهر: <strong id="engine-material-monthly">—</strong></p><p>التكلفة المحملة / ساعة<strong id="costHour2">—</strong></p><p class="sub" style="margin-top:-7px">نصيب الموظفة من التكلفة المحملة / ساعة: <strong id="engine-employee-hourly">—</strong></p><p class="sub" style="margin-top:-7px">تكلفة المواد في الساعة: <strong id="engine-material-hourly">—</strong></p></div>`;
+  if (costSummary) costSummary.innerHTML = `<h2>ملخص التكاليف</h2><div class="rows"><p>إجمالي التكلفة الشهرية الحالية<strong id="monthly">—</strong></p><p>التكلفة الشهرية لتشغيل الموظفات<strong id="engine-salary-monthly">—</strong></p><p class="sub" style="margin-top:-7px">راتب الموظفات اليومي: <strong id="engine-salary-daily">—</strong> × 26 يوم عمل</p><p>المصاريف الثابتة الشهرية<strong id="engine-fixed-monthly">—</strong></p><p class="sub" style="margin-top:-7px">سكن الموظفين 2,000 + السيارة/النقل 2,000</p><p>مصاريف التشغيل المتغيرة لكل زيارة<strong id="engine-material-average">—</strong></p><p class="sub" style="margin-top:-7px">متوسط المواد فقط؛ مجموع مواد الشهر: <strong id="engine-material-monthly">—</strong></p><p>التكلفة المحملة / ساعة<strong id="costHour2">—</strong></p><p class="sub" style="margin-top:-7px">نصيب الموظفة من التكلفة المحملة لكل نصف ساعة: <strong id="engine-employee-hourly">—</strong></p><p class="sub" style="margin-top:-7px">تكلفة المواد في الساعة: <strong id="engine-material-hourly">—</strong></p></div>`;
   if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>التكاليف الثابتة والمواد</h3><p class="sub">النقل والوقود وسكن الموظفين ثابتان للشركة كلها. الإدارة والتشغيل غير محسوبين حالياً.</p><div class="engine-fields"><label>النقل والوقود الشهري<input value="2,000 SAR — ثابت للشركة" readonly></label><label>سكن الموظفين الشهري<input value="2,000 SAR — ثابت للشركة" readonly></label><label>هدف الزيارات اليومي للمواد (محسوب تلقائياً)<input id="engine-material-target" type="number" readonly value="0"></label><div class="engine-stat"><small>تكلفة المواد المتوقعة شهرياً</small><strong id="engine-material-formula">—</strong><p class="sub" id="engine-material-detail">—</p></div></div></article>`);
   costs?.querySelector(".cost-grid article:nth-child(2) .rows")?.insertAdjacentHTML("beforeend", '<p>سكن الموظفين الشهري<strong id="engine-accommodation-summary">2,000 SAR</strong></p>');
   if (costs) costs.insertAdjacentHTML("beforeend", `<article class="panel engine-panel"><h3>عينات مرجعية لشراء المستلزمات</h3><p class="sub">أسعار سوق حالية للاسترشاد عند الشراء بالجملة أو بالكرتون. تكلفة المواد في النموذج تبقى تقديراً إجمالياً لكل زيارة، وليست جمعاً مباشراً لهذه العبوات.</p><table class="engine-table"><thead><tr><th>الصنف</th><th>سعر السوق</th><th>الاستخدام التقريبي</th><th>تكلفة الاستخدام</th></tr></thead><tbody><tr><td><a href="https://www.carrefourksa.com/mafsau/en/multi-purpose-cleaner/dac-base-disinf-5l-bakhour-offer/p/752991?offer=offer_carrefour_&sellerId=0000&sid=QCOMM" target="_blank" rel="noreferrer">منظف أرضيات DAC، 5 لتر</a></td><td>21.99 SAR</td><td>50 مل / زيارة</td><td>0.22 SAR</td></tr><tr><td><a href="https://aleithar.sa/en/qs-vinyl-gloves-carton-powder-free-transparent/p1264123435" target="_blank" rel="noreferrer">قفازات فينيل، كرتون 1,000</a></td><td>77.39 SAR</td><td>زوج / زيارة</td><td>0.15 SAR</td></tr><tr><td><a href="https://aryaf.com.sa/ar/wholesale-medium-thickness-trash-bags-50-gal-500-bags/p1060182784" target="_blank" rel="noreferrer">أكياس نفايات، 500 كيس</a></td><td>175.70 SAR</td><td>كيس / زيارة</td><td>0.35 SAR</td></tr><tr><td><a href="https://www.carrefourksa.com/mafsau/ar/c/02245" target="_blank" rel="noreferrer">منظف زجاج DAC، 4 لتر</a></td><td>28.95 SAR</td><td>20 مل / زيارة</td><td>0.14 SAR</td></tr></tbody></table><p class="sub">الأسعار تتغير حسب المورد والعروض. تشمل تكلفة الزيارة في النموذج أيضاً استهلاك المايكروفايبر ومنظفات الحمام والمطبخ والفاقد التشغيلي.</p></article>`);
