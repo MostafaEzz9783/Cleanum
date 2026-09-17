@@ -47,6 +47,7 @@
   const teamInput = $("#team");
   const hoursInput = $("#hours");
   if (!home || !service || !billableInput) return;
+  if (minVisitInput) { minVisitInput.value = 0; minVisitInput.closest("label")?.style.setProperty("display", "none"); }
   home.innerHTML = '<option value="0.5">Studio</option><option value="1">1BR</option><option value="1.5">2BR</option><option value="2">3BR</option>';
   const serviceKey = () => service.selectedIndex === 1 ? "turnover" : "regular";
   if (hoursInput) { hoursInput.value = state.dailyHours * state.workdaysPerMonth; hoursInput.readOnly = true; }
@@ -66,7 +67,7 @@
     const hours = state.dailyHours * state.workdaysPerMonth;
     const billableMinutes = actualMinutes[unit];
     const billable = billableMinutes / 60;
-    const minimum = number(minVisitInput?.value);
+    const minimum = 0;
     const adjustment = number(adjustInput?.value);
     const averageMaterial = Object.values(materialCost).reduce((sum, value) => sum + value, 0) / Object.keys(materialCost).length;
     const dailyMaterialTarget = team * state.visitsPerWorkerPerDay;
@@ -82,7 +83,7 @@
     const hourlyRate = state.margin < 1 ? employeeCostPerHour / (1 - state.margin) : 0;
     const directCost = employeeCostPerHour * billable + visitMaterials;
     const hourlyTotal = state.margin < 1 ? directCost / (1 - state.margin) : 0;
-    const beforeTax = Math.max(hourlyTotal + adjustment, minimum);
+    const beforeTax = Math.max(hourlyTotal + adjustment, 0);
     const vat = state.taxEnabled ? beforeTax * state.taxRate : 0;
     const total = beforeTax + vat;
     const targetMargin = state.margin * 100;
@@ -127,12 +128,12 @@
     const v = calc();
     const capacityVisits = v.team * state.visitsPerWorkerPerDay * state.workdaysPerMonth;
     const averageDirectVisitCost = v.employeeCostPerHour * v.averageBillable + v.averageMaterial;
-    const scenarioPrice = Math.max(averageDirectVisitCost / (1 - state.margin), state.minVisit.regular);
+    const scenarioPrice = averageDirectVisitCost / (1 - state.margin);
     const breakEvenVisits = Math.ceil((v.salary * v.team + state.transport + state.accommodation) / Math.max(scenarioPrice - v.averageMaterial, 1));
     const profiles = [
       { name: "بداية هادئة", note: "بناء ثقة وقاعدة عملاء تدريجياً؛ لا يصل للتعادل خلال السنة الأولى.", tone: "#7892aa", visits: [16, 20, 24, 30, 36, 42, 48, 54, 60, 68, 76, 84] },
-      { name: "نمو متوازن — الموصى به", note: "يصل إلى التعادل التشغيلي في الشهر الخامس؛ أفضل توازن بين الواقعية والسيولة.", tone: "#1e9d85", visits: [50, 75, 100, 120, 140, 145, 150, 152, 154, 156, 156, 156] },
-      { name: "بداية قوية", note: "يصل للتعادل في الشهر الثالث ثم يتحول إلى ربح؛ يحتاج تسويقاً ومبيعات قوية منذ اليوم الأول.", tone: "#d8842c", visits: [100, 125, 140, 145, 150, 152, 154, 156, 156, 156, 156, 156] },
+      { name: "نمو متوازن", note: "نمو تدريجي حتى السعة التشغيلية، مع إظهار نتيجة الربحية الفعلية من دون حد أدنى للسعر.", tone: "#1e9d85", visits: [50, 75, 100, 120, 140, 145, 150, 152, 154, 156, 156, 156] },
+      { name: "بداية قوية", note: "طلب مرتفع مبكراً حتى السعة التشغيلية، مع قياس الربحية الفعلية من دون حد أدنى للسعر.", tone: "#d8842c", visits: [100, 125, 140, 145, 150, 152, 154, 156, 156, 156, 156, 156] },
     ];
     const rows = (profile) => profile.visits.map((visits, index) => {
       const materials = visits * v.averageMaterial;
@@ -141,7 +142,8 @@
       const profit = revenue - expense;
       return { month: index + 1, visits, revenue, expense, profit };
     });
-    section.innerHTML = `<article class="panel engine-panel"><h2>سيناريوهات السنة الأولى — عاملتان</h2><p class="sub">السقف التشغيلي: ${capacityVisits} زيارة شهرياً. سعر السيناريو المتوسط ${money(scenarioPrice)} قبل الضريبة، والمواد تحسب فعلياً حسب عدد الزيارات.</p><div class="engine-good">نقطة التعادل الشهرية: ${breakEvenVisits} زيارة. تم اختيار سيناريو النمو المتوازن للوصول إليها في الشهر الخامس.</div></article>${profiles.map(profile => {
+    const breakEvenMessage = breakEvenVisits > capacityVisits ? `نقطة التعادل ${breakEvenVisits} زيارة، وهي أعلى من السعة ${capacityVisits}. لا يمكن تحقيق التعادل بالتسعير الحالي من دون رفع السعر أو زيادة السعة.` : `نقطة التعادل الشهرية: ${breakEvenVisits} زيارة ضمن السعة الحالية.`;
+    section.innerHTML = `<article class="panel engine-panel"><h2>سيناريوهات السنة الأولى — عاملتان</h2><p class="sub">السقف التشغيلي: ${capacityVisits} زيارة شهرياً. سعر السيناريو المتوسط ${money(scenarioPrice)} قبل الضريبة، والمواد تحسب فعلياً حسب عدد الزيارات.</p><div class="${breakEvenVisits > capacityVisits ? "engine-warning" : "engine-good"}">${breakEvenMessage}</div></article>${profiles.map(profile => {
       const data = rows(profile); const totals = data.reduce((sum, row) => ({ visits: sum.visits + row.visits, revenue: sum.revenue + row.revenue, expense: sum.expense + row.expense, profit: sum.profit + row.profit }), { visits: 0, revenue: 0, expense: 0, profit: 0 });
       const achieved = data.find(row => row.profit >= 0)?.month;
       return `<article class="panel engine-panel"><h3 style="border-right:4px solid ${profile.tone};padding-right:10px">${profile.name}</h3><p class="sub">${profile.note}</p><div class="engine-grid"><div class="engine-stat"><small>التعادل الشهري</small><strong>${achieved ? `شهر ${achieved}` : "بعد السنة الأولى"}</strong></div><div class="engine-stat"><small>زيارات السنة</small><strong>${totals.visits}</strong></div><div class="engine-stat"><small>إيرادات السنة قبل الضريبة</small><strong>${money(totals.revenue)}</strong></div><div class="engine-stat"><small>صافي السنة التشغيلي</small><strong>${money(totals.profit)}</strong></div></div><table class="engine-table"><thead><tr><th>الشهر</th><th>الزيارات</th><th>الإيرادات قبل الضريبة</th><th>المصاريف</th><th>الربح / الخسارة</th></tr></thead><tbody>${data.map(row => `<tr><td>${row.month}</td><td>${row.visits}</td><td>${money(row.revenue)}</td><td>${money(row.expense)}</td><td style="color:${row.profit >= 0 ? "#147558" : "#b45309"}">${money(row.profit)}</td></tr>`).join("")}</tbody></table></article>`;
@@ -183,7 +185,6 @@
     if (health) health.innerHTML = `<h3>صحة التسعير والتشغيل</h3><div class="engine-grid"><div class="engine-stat"><small>متوسط سعر الزيارة (شامل الضريبة)</small><strong>${money(v.averageTotal)}</strong></div><div class="engine-stat"><small>متوسط إيراد الشفت قبل الضريبة</small><strong>${money(v.shiftRevenue)}</strong></div><div class="engine-stat"><small>تكلفة المواد الشهرية</small><strong>${money(v.monthlyMaterials)}</strong><p class="sub">${v.dailyMaterialTarget} زيارة يومياً محسوبة تلقائياً</p></div><div class="engine-stat"><small>الإيراد الشهري قبل الضريبة</small><strong>${money(v.revenue)}</strong></div><div class="engine-stat"><small>ربح تشغيلي قبل الضريبة</small><strong>${money(v.profit)}</strong></div><div class="engine-stat"><small>زمن 3 زيارات / الشفت</small><strong>${(v.averageActualMinutes * 3).toFixed(0)} / 480 دقيقة</strong></div></div>`;
     const warnings = [];
     if (!v.team || !v.hours || !v.billable) warnings.push("أدخل عدد العاملات وساعات السعة ووقت الفوترة لإصدار سعر صالح.");
-    if (v.adjustment < 0 && v.hourlyTotal + v.adjustment < v.minimum) warnings.push("تم الحفاظ على الحد الأدنى للزيارة بعد التعديل اليدوي؛ الخصم لا يمكنه كسره.");
     if (v.actualMargin + .01 < v.targetMargin) warnings.push("الهامش الفعلي أقل من الهدف. راجع الحد الأدنى أو التعديل اليدوي.");
     if (v.averageActualMinutes * state.visitsPerWorkerPerDay > state.dailyHours * 60) warnings.push("متوسط مدة الزيارات يتجاوز ساعات الشفت؛ راجع هدف الزيارات اليومي.");
     if (v.material > 0) warnings.push(`تكلفة المستلزمات الشهرية تُحسب تلقائياً من ${v.team} عاملات × 3 زيارات يومياً، بمتوسط ${money(v.averageMaterial)} للزيارة؛ فلا تُضاف مرة أخرى لسعر الزيارة.`);
@@ -230,7 +231,7 @@
   const dashboard = $("#dash");
   if (dashboard) dashboard.insertAdjacentHTML("beforeend", '<article id="financial-health" class="panel engine-panel"></article><section id="engine-warnings"></section>');
   const calculator = $("#calc");
-  if (calculator) calculator.querySelector(".panel")?.insertAdjacentHTML("beforeend", '<article class="panel engine-panel"><h3>كيف يُحسب السعر؟</h3><div class="engine-grid"><div class="engine-stat"><small>بالساعة</small><strong id="engine-hourly-explainer">—</strong><p class="sub">تكلفة عاملة واحدة × وقت التنظيف، ثم تضاف مواد الوحدة.</p></div><div class="engine-stat"><small>بالزيارة</small><strong id="engine-visit-explainer">—</strong><p class="sub">إجمالي الساعات بعد التعديل، ولا يقل عن الحد الأدنى للزيارة.</p></div></div></article>');
+  if (calculator) calculator.querySelector(".panel")?.insertAdjacentHTML("beforeend", '<article class="panel engine-panel"><h3>كيف يُحسب السعر؟</h3><div class="engine-grid"><div class="engine-stat"><small>بالساعة</small><strong id="engine-hourly-explainer">—</strong><p class="sub">تكلفة عاملة واحدة × وقت التنظيف، ثم تضاف مواد الوحدة.</p></div><div class="engine-stat"><small>بالزيارة</small><strong id="engine-visit-explainer">—</strong><p class="sub">إجمالي الساعات بعد التعديل اليدوي، من دون حد أدنى للسعر.</p></div></div></article>');
   calculator?.querySelector(".result .rows")?.insertAdjacentHTML("afterbegin", '<p>تكلفة العاملة للزيارة<strong id="calculator-labor">—</strong></p><p>تكلفة مواد الوحدة<strong id="calculator-material">—</strong></p>');
 
   const originalRender = render;
