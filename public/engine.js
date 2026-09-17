@@ -6,7 +6,7 @@
   const money = (value) => `${Number(value || 0).toLocaleString("en-SA", { maximumFractionDigits: 1 })} SAR`;
   const number = (value) => Number.parseFloat(value) || 0;
   const actualMinutes = { 0.5: 75, 1: 75, 1.5: 120, 2: 150 };
-  const materialCost = { 0.5: 2.2, 1: 2.9, 1.5: 4.2, 2: 5.3 };
+  const materialCost = { 0.5: 1.43, 1: 1.96, 1.5: 2.82, 2: 3.66 };
 
   const defaults = {
     salary: 3000, team: 2, hours: 208, dailyHours: 8, workdaysPerWeek: 6, workdaysPerMonth: 26, visitsPerWorkerPerDay: 3, dailyMaterialTarget: 6, transport: 2000, accommodation: 2000, supplies: 0, admin: 0,

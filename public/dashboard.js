@@ -15,12 +15,12 @@
 
   costs.insertAdjacentHTML(
     "beforeend",
-    '<article class="panel" style="margin-top:17px"><h2>تكلفة المستلزمات المرجعية لكل زيارة</h2><p style="font-size:12px;color:#71869a">تشمل المنظفات، القفازات، كيس النفايات، واستهلاك المايكروفايبر. لا تدخل مباشرة في سعر الزيارة طالما بند المستلزمات الشهري موجود.</p><div class="rows"><p>Studio — تنظيف دوري<strong>2.2 SAR</strong></p><p>1BR — تنظيف دوري<strong>2.9 SAR</strong></p><p>2BR — تنظيف دوري<strong>4.2 SAR</strong></p><p>3BR — تنظيف دوري<strong>5.3 SAR</strong></p><p>4BR — تنظيف دوري<strong>6.5 SAR</strong></p></div><p style="margin:13px 0 0;color:#147d6e;font-size:12px">Turnover Cleaning = تكلفة المواد × 1.4</p></article>',
+    '<article class="panel" style="margin-top:17px"><h2>تكلفة المستلزمات المرجعية لكل زيارة</h2><p style="font-size:12px;color:#71869a">مبنية على عرض المورد قبل VAT، وتشمل المنظفات، القفازات، كيس النفايات، واستهلاك المايكروفايبر القابل لإعادة الاستخدام.</p><div class="rows"><p>Studio — تنظيف دوري<strong>1.43 SAR</strong></p><p>1BR — تنظيف دوري<strong>1.96 SAR</strong></p><p>2BR — تنظيف دوري<strong>2.82 SAR</strong></p><p>3BR — تنظيف دوري<strong>3.66 SAR</strong></p></div><p style="margin:13px 0 0;color:#147d6e;font-size:12px">Turnover Cleaning = تكلفة المواد × 1.4</p></article>',
   );
 
   const serviceSelect = calculator.querySelectorAll("select")[1];
   serviceSelect.id = "serviceType";
-  const materialByUnit = { 1: 2.9, 1.5: 4.2, 2: 5.3, 2.5: 6.5 };
+  const materialByUnit = { 0.5: 1.43, 1: 1.96, 1.5: 2.82, 2: 3.66 };
   function updateMaterialCost() {
     const base = materialByUnit[Number($("#home").value)] || 0;
     const turnover = serviceSelect.selectedIndex === 1;
